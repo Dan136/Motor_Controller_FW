@@ -7,7 +7,6 @@
 #include "lwip_netconf.h"
 #include "wifi_conf.h"
 #include "netif.h"
-#include "example_socket_tcp_trx.h"
 #include <platform/platform_stdlib.h>
 #include "motor_wifi.h"
 
