@@ -38,6 +38,9 @@ char* password;
 
 static int tx_exit = 0, rx_exit = 0;
 
+static int window_open = 0;
+static int window_target = 0;
+
 static void wifi_socket_thread(void *param)
 {
 	int loops = 0;
@@ -166,6 +169,14 @@ static void rx_thread(void *param)
 		rtw_up_sema(&tcp_tx_rx_sema);
 		if (buffer[0])
 		{
+			if (buffer[0]== 'c')
+			{
+				window_target = 0;
+			}
+			else if (buffer[0] == 'o')
+			{
+				window_target = 1;
+			}
 			printf("Received: %s\n", buffer);
 			memset(&buffer[0], 0, RBUFSIZE);
 		}
@@ -254,6 +265,9 @@ void example_socket_tcp_trx_1(void)
 
 void motor_control_thread()
 {
+	if (window_open!=window_target)
+	{
 
-
+	}
+	vTaskDelay(2000);
 }
