@@ -251,3 +251,9 @@ void example_socket_tcp_trx_1(void)
 	if(xTaskCreate(example_socket_tcp_trx_thread, ((const char*)"example_socket_tcp_trx_thread"), 1024, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
 		printf("\n\r%s xTaskCreate(example_socket_tcp_trx_thread) failed", __FUNCTION__);
 }
+
+void motor_control_thread()
+{
+
+
+}
