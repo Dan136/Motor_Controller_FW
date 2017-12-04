@@ -38,8 +38,12 @@ char* password;
 
 static int tx_exit = 0, rx_exit = 0;
 
-static int window_open = 0;
-static int window_target = 0;
+enum windowState {HOLD_WINDOW, OPEN_WINDOW, CLOSE_WINDOW};
+
+typedef enum windowState windowState_e;
+
+static windowState_e window_state = HOLD_WINDOW;
+static windowState_e window_target = HOLD_WINDOW;
 
 static void wifi_socket_thread(void *param)
 {
@@ -265,9 +269,26 @@ void example_socket_tcp_trx_1(void)
 
 void motor_control_thread()
 {
-	if (window_open!=window_target)
-	{
-
+	while(1){
+		if (window_state!=window_target)
+		{
+			do {
+				gpio_write(&gpio_motor_down, 0);
+				gpio_write(&gpio_motor_up, 0);
+			} while (gpio_read(&gpio_motor_down) || gpio_read(&gpio_motor_up));
+			switch(window_target){
+				case CLOSE_WINDOW:
+					gpio_write(&gpio_motor_down, 1);
+					break;
+				case OPEN_WINDOW:
+					gpio_write(&gpio_motor_up, 1);
+					break;
+				case HOLD_WINDOW:
+					break;
+			}
+			window_state = window_target;
+		}
+		vTaskDelay(200);
 	}
-	vTaskDelay(2000);
+
 }
