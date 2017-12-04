@@ -22,6 +22,8 @@
 #define SERVER_PORT     80
 #define LISTEN_QLEN     2
 
+#define RBUFSIZE	17
+
 static gpio_t gpio_motor_up;
 static gpio_t gpio_motor_down;
 static gpio_t gpio_limit;
@@ -155,31 +157,13 @@ static void rx_thread(void *param)
 	int client_fd = * (int *) param;
 	unsigned char buffer[RBUFSIZE] = {'\0'};
 	printf("\n%s start\n", __FUNCTION__);
-	gpio_write(&gpio_relay, 1);
 	while(1) {
 		int ret = 0, sock_err = 0;
 		size_t err_len = sizeof(sock_err);
-		swState[1] = gpio_read(&gpio_switch);
 		rtw_down_sema(&tcp_tx_rx_sema);
 		ret = recv(client_fd, buffer, 16, MSG_DONTWAIT);
 		getsockopt(client_fd, SOL_SOCKET, SO_ERROR, &sock_err, &err_len);
 		rtw_up_sema(&tcp_tx_rx_sema);
-		if (swState[1] != gpio_read(&gpio_switch))
-		{
-			swState[1] ^= 1; // toggle state
-			swState[0] ^= 1;
-			gpio_write(&gpio_relay, swState[1]);
-		}
-		if (buffer[0] == 'o')
-		{
-			swState[0] = 1;
-			gpio_write(&gpio_relay, swState[0]);
-		}
-		else if (buffer[0] == 'f')
-		{
-			swState[0] = 0;
-			gpio_write(&gpio_relay, swState[0]);
-		}
 		if (buffer[0])
 		{
 			printf("Received: %s\n", buffer);
