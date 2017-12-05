@@ -39,12 +39,15 @@ char* password;
 
 static int tx_exit = 0, rx_exit = 0;
 
-enum windowState {HOLD_WINDOW, OPEN_WINDOW, CLOSE_WINDOW};
+enum windowState {MOVE_WINDOW, OPEN_WINDOW, CLOSE_WINDOW};
 
 typedef enum windowState windowState_e;
 
-static windowState_e window_state = HOLD_WINDOW;
-static windowState_e window_target = HOLD_WINDOW;
+
+static SemaphoreHandle_t GPIOBufSem = 0;
+static windowState_e window_state = CLOSE_WINDOW;
+static windowState_e window_wifi_target = CLOSE_WINDOW;
+static windowState_e window_motor_target = CLOSE_WINDOW;
 
 static void wifi_socket_thread(void *param)
 {
@@ -78,6 +81,7 @@ void start_sensor_wifi()
 
 	connect_to_network();
 	wifiBufSem = xSemaphoreCreateMutex(); // initialize semaphore
+	GPIOBufSem  = xSemaphoreCreateMutex(); // initialize semaphore
 	if(xTaskCreate(wifi_socket_thread, ((const char*)"WiFi Socket Thread"), 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
 			printf("\n\r%s xTaskCreate(wifi_socket_thread) failed", __FUNCTION__);
 	if(xTaskCreate(motor_control_thread, ((const char*)"Motor Control Thread"), 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
@@ -178,11 +182,13 @@ static void rx_thread(void *param)
 		{
 			if (buffer[0]== 'c')
 			{
-				window_target = CLOSE_WINDOW;
+				printf("\n%s Close Window\n", __FUNCTION__);
+				window_wifi_target = CLOSE_WINDOW;
 			}
 			else if (buffer[0] == 'o')
 			{
-				window_target = OPEN_WINDOW;
+				printf("\n%s Open Window\n", __FUNCTION__);
+				window_wifi_target = OPEN_WINDOW;
 			}
 			printf("Received: %s\n", buffer);
 			memset(&buffer[0], 0, RBUFSIZE);
@@ -271,39 +277,58 @@ void example_socket_tcp_trx_1(void)
 }
 
 
+
+
+
 void stop_motor(TimerHandle_t xTimer){
-	do {
-		gpio_write(&gpio_motor_down, 0);
-		gpio_write(&gpio_motor_up, 0);
-		} while (gpio_read(&gpio_motor_down) || gpio_read(&gpio_motor_up));
-	window_state = HOLD_WINDOW;
+	printf("\n%s Timer triggered\n", __FUNCTION__);
+	while (xSemaphoreTake(GPIOBufSem, 0) != pdPASS){}; //wait for gpio semaphore
+	gpio_write(&gpio_motor_down, 0);
+	gpio_write(&gpio_motor_up, 0);
+	window_state = window_motor_target;
+	xSemaphoreGive(GPIOBufSem);
+	printf("\n%s done\n", __FUNCTION__);
 }
 
 
 void motor_control_thread()
 {
-	TimerHandle_t stopTimer = xTimerCreate("Stop Timer", pdMS_TO_TICKS(0), pdFALSE, 0, stop_motor);
-	while(1){
-		while(xTimerIsTimerActive(stopTimer) != pdFALSE){}// wait for timer to stop
-		if (window_state!=window_target)
+	const TickType_t OpenTime = pdMS_TO_TICKS(22000);
+	const TickType_t CloseTime = pdMS_TO_TICKS(30000);
+	TimerHandle_t stopTimer = xTimerCreate("Stop Timer", OpenTime, pdFALSE, 0, stop_motor);
+	if (stopTimer == NULL){
+		printf("\n%s Timer Creation Error\n", __FUNCTION__);
+	}
+	printf("\n%s start\n", __FUNCTION__);
+	while(1)
+	{
+		if (window_state!=MOVE_WINDOW && window_state!=window_wifi_target )
 		{
-			do {
-				gpio_write(&gpio_motor_down, 0);
-				gpio_write(&gpio_motor_up, 0);
-			} while (gpio_read(&gpio_motor_down) || gpio_read(&gpio_motor_up)); // wait for gpio pins to turn off
-			switch(window_target){
+			window_motor_target = window_wifi_target;
+			window_state = MOVE_WINDOW;
+			while (xSemaphoreTake(GPIOBufSem, 0) != pdPASS){}; //wait for gpio semaphore
+			printf("\n%s State Change\n", __FUNCTION__);
+			gpio_write(&gpio_motor_down, 0);
+			gpio_write(&gpio_motor_up, 0);
+			printf("\n%s Turned Off GPIO\n", __FUNCTION__);
+			switch(window_motor_target)
+			{
 				case CLOSE_WINDOW:
 					gpio_write(&gpio_motor_down, 1);
-					xTimerStart(stopTimer, pdMS_TO_TICKS(30000));
+					printf("\n%s Close Window\n", __FUNCTION__);
+					xTimerReset(stopTimer, CloseTime);
+					printf("\n%s Started Timer\n", __FUNCTION__);
 					break;
 				case OPEN_WINDOW:
 					gpio_write(&gpio_motor_up, 1);
-					xTimerStart(stopTimer, pdMS_TO_TICKS(25000));
+					printf("\n%s Open Window\n", __FUNCTION__);
+					xTimerReset(stopTimer, OpenTime);
+					printf("\n%s Started Timer\n", __FUNCTION__);
 					break;
-				case HOLD_WINDOW:
+				case MOVE_WINDOW:
 					break;
 			}
-			window_state = window_target;
+			xSemaphoreGive(GPIOBufSem);
 
 		}
 		vTaskDelay(200);

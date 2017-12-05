@@ -8,6 +8,7 @@ void example_socket_tcp_trx_1(void);
 void start_sensor_wifi(void);
 int connect_to_network(void);
 BaseType_t write_wifi_buffer(const char * dataStart);
+void motor_control_thread();
 
 
 #endif
