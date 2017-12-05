@@ -14,6 +14,7 @@
 //Includes for LED
 #include "device.h"
 #include "gpio_api.h"
+#include "timers.h"
 
 #define GPIO_MOTOR_UP       PC_1
 #define GPIO_MOTOR_DOWN       PC_3
@@ -267,26 +268,41 @@ void example_socket_tcp_trx_1(void)
 		printf("\n\r%s xTaskCreate(example_socket_tcp_trx_thread) failed", __FUNCTION__);
 }
 
+
+void stop_motor(TimerHandle_t xTimer){
+	do {
+		gpio_write(&gpio_motor_down, 0);
+		gpio_write(&gpio_motor_up, 0);
+		} while (gpio_read(&gpio_motor_down) || gpio_read(&gpio_motor_up));
+	window_state = HOLD_WINDOW;
+}
+
+
 void motor_control_thread()
 {
+	TimerHandle_t stopTimer = xTimerCreate("Stop Timer", pdMS_TO_TICKS(0), pdFALSE, 0, stop_motor);
 	while(1){
+		while(xTimerIsTimerActive(stopTimer) != pdFALSE){}// wait for timer to stop
 		if (window_state!=window_target)
 		{
 			do {
 				gpio_write(&gpio_motor_down, 0);
 				gpio_write(&gpio_motor_up, 0);
-			} while (gpio_read(&gpio_motor_down) || gpio_read(&gpio_motor_up));
+			} while (gpio_read(&gpio_motor_down) || gpio_read(&gpio_motor_up)); // wait for gpio pins to turn off
 			switch(window_target){
 				case CLOSE_WINDOW:
 					gpio_write(&gpio_motor_down, 1);
+					xTimerStart(stopTimer, pdMS_TO_TICKS(30000));
 					break;
 				case OPEN_WINDOW:
 					gpio_write(&gpio_motor_up, 1);
+					xTimerStart(stopTimer, pdMS_TO_TICKS(25000));
 					break;
 				case HOLD_WINDOW:
 					break;
 			}
 			window_state = window_target;
+
 		}
 		vTaskDelay(200);
 	}
