@@ -80,6 +80,8 @@ void start_sensor_wifi()
 	wifiBufSem = xSemaphoreCreateMutex(); // initialize semaphore
 	if(xTaskCreate(wifi_socket_thread, ((const char*)"WiFi Socket Thread"), 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
 			printf("\n\r%s xTaskCreate(wifi_socket_thread) failed", __FUNCTION__);
+	if(xTaskCreate(motor_control_thread, ((const char*)"Motor Control Thread"), 2048, NULL, tskIDLE_PRIORITY + 1, NULL) != pdPASS)
+				printf("\n\r%s xTaskCreate(motor_control_thread) failed", __FUNCTION__);
 	vTaskDelete(NULL);
 }
 
@@ -176,11 +178,11 @@ static void rx_thread(void *param)
 		{
 			if (buffer[0]== 'c')
 			{
-				window_target = 0;
+				window_target = CLOSE_WINDOW;
 			}
 			else if (buffer[0] == 'o')
 			{
-				window_target = 1;
+				window_target = OPEN_WINDOW;
 			}
 			printf("Received: %s\n", buffer);
 			memset(&buffer[0], 0, RBUFSIZE);
