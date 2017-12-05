@@ -295,8 +295,9 @@ void motor_control_thread()
 {
 	const TickType_t OpenTime = pdMS_TO_TICKS(22000);
 	const TickType_t CloseTime = pdMS_TO_TICKS(30000);
-	TimerHandle_t stopTimer = xTimerCreate("Stop Timer", OpenTime, pdFALSE, 0, stop_motor);
-	if (stopTimer == NULL){
+	TimerHandle_t stopOpenTimer = xTimerCreate("Stop Timer", OpenTime, pdFALSE, 0, stop_motor);
+	TimerHandle_t stopCloseTimer = xTimerCreate("Stop Timer", CloseTime, pdFALSE, 0, stop_motor);
+	if (stopOpenTimer == NULL || stopOpenTimer == NULL){
 		printf("\n%s Timer Creation Error\n", __FUNCTION__);
 	}
 	printf("\n%s start\n", __FUNCTION__);
@@ -316,13 +317,13 @@ void motor_control_thread()
 				case CLOSE_WINDOW:
 					gpio_write(&gpio_motor_down, 1);
 					printf("\n%s Close Window\n", __FUNCTION__);
-					xTimerReset(stopTimer, CloseTime);
+					xTimerReset(stopCloseTimer, CloseTime);
 					printf("\n%s Started Timer\n", __FUNCTION__);
 					break;
 				case OPEN_WINDOW:
 					gpio_write(&gpio_motor_up, 1);
 					printf("\n%s Open Window\n", __FUNCTION__);
-					xTimerReset(stopTimer, OpenTime);
+					xTimerReset(stopOpenTimer, OpenTime);
 					printf("\n%s Started Timer\n", __FUNCTION__);
 					break;
 				case MOVE_WINDOW:
